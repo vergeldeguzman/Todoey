@@ -76,9 +76,8 @@ class TodoeyListViewController: UITableViewController {
                     print("Error saving item, \(error)")
                 }
             }
+            self.tableView.reloadData()
         }
-        
-        self.tableView.reloadData()
 
         alert.addTextField { (alertTextField) in
             alertTextField.placeholder = "Create new item"
