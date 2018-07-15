@@ -8,12 +8,15 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class TodoeyListViewController: UITableViewController {
+class TodoeyListViewController: SwipeTableViewController {
 
     let realm = try! Realm()
     var todoItems: Results<Item>?
 
+    @IBOutlet weak var searchbar: UISearchBar!
+    
     var selectedCategory : Category? {
         didSet {
             loadItems()
@@ -22,6 +25,34 @@ class TodoeyListViewController: UITableViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        tableView.separatorStyle = .none
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        title = selectedCategory?.name
+
+        if let colorHex = selectedCategory?.color {
+            if let color = UIColor(hexString: colorHex) {
+                updateNavigationBarColor(color: color)
+                searchbar.barTintColor = color
+            }
+        }
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        let originalColor = UIColor(red:0.11, green:0.61, blue:0.96, alpha:1.0)
+        updateNavigationBarColor(color: originalColor)
+    }
+    
+    func updateNavigationBarColor(color: UIColor) {
+        guard let navigationBar = navigationController?.navigationBar else {
+            fatalError("Navigation bar does not exist")
+        }
+        let contrastColor = UIColor(contrastingBlackOrWhiteColorOn: color, isFlat:true)
+        navigationBar.barTintColor = color
+        navigationBar.tintColor = contrastColor
+        navigationBar.largeTitleTextAttributes = [NSAttributedStringKey.foregroundColor: contrastColor]
     }
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -29,11 +60,17 @@ class TodoeyListViewController: UITableViewController {
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
         if let item = todoItems?[indexPath.row] {
             cell.textLabel?.text = item.title
             cell.accessoryType = item.done ? .checkmark : .none
+            if let colorHex = selectedCategory?.color {
+                if let color = UIColor(hexString: colorHex), let itemCount = todoItems?.count {
+                    cell.backgroundColor = color.darken(byPercentage: CGFloat(indexPath.row) / CGFloat(itemCount))
+                    cell.textLabel?.textColor = UIColor(contrastingBlackOrWhiteColorOn: cell.backgroundColor!, isFlat:true)
+                }
+            }
         }
         else {
             cell.textLabel?.text = "No Items Added"
@@ -91,6 +128,19 @@ class TodoeyListViewController: UITableViewController {
     func loadItems() {
         todoItems = selectedCategory?.items.sorted(byKeyPath: "title", ascending: true)
         tableView.reloadData()
+    }
+    
+    override func updateModel(at indexPath: IndexPath) {
+        if let itemForDeletion = self.todoItems?[indexPath.row] {
+            do {
+                try self.realm.write {
+                    self.realm.delete(itemForDeletion)
+                }
+            }
+            catch {
+                print("Error deleting item, \(error)")
+            }
+        }
     }
 }
 
